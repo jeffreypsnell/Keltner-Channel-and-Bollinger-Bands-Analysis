@@ -195,29 +195,57 @@ def create_chart(df, save_path='FLNG_Technical_Indicators.png'):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 10), 
                                      gridspec_kw={'height_ratios': [3, 1]})
     
-    # Main price chart
-    ax1.plot(df.index, df['Close'], label='FLNG Close Price', 
+    # Use integer indices to eliminate gaps from non-trading periods
+    x_indices = range(len(df))
+    
+    # Main price chart - plot using indices
+    ax1.plot(x_indices, df['Close'].values, label='FLNG Close Price', 
              color='black', linewidth=1.5, zorder=5)
     
     # Bollinger Bands
-    ax1.plot(df.index, df['BB_Upper'], label='BB Upper', 
+    ax1.plot(x_indices, df['BB_Upper'].values, label='BB Upper', 
              color='blue', linestyle='--', linewidth=1, alpha=0.7)
-    ax1.plot(df.index, df['BB_Middle'], label='BB Middle (SMA)', 
+    ax1.plot(x_indices, df['BB_Middle'].values, label='BB Middle (SMA)', 
              color='blue', linestyle=':', linewidth=1, alpha=0.7)
-    ax1.plot(df.index, df['BB_Lower'], label='BB Lower', 
+    ax1.plot(x_indices, df['BB_Lower'].values, label='BB Lower', 
              color='blue', linestyle='--', linewidth=1, alpha=0.7)
-    ax1.fill_between(df.index, df['BB_Upper'], df['BB_Lower'], 
+    ax1.fill_between(x_indices, df['BB_Upper'].values, df['BB_Lower'].values, 
                       color='blue', alpha=0.1)
     
     # Keltner Channels
-    ax1.plot(df.index, df['KC_Upper'], label='KC Upper', 
+    ax1.plot(x_indices, df['KC_Upper'].values, label='KC Upper', 
              color='red', linestyle='--', linewidth=1, alpha=0.7)
-    ax1.plot(df.index, df['KC_Middle'], label='KC Middle (EMA)', 
+    ax1.plot(x_indices, df['KC_Middle'].values, label='KC Middle (EMA)', 
              color='red', linestyle=':', linewidth=1, alpha=0.7)
-    ax1.plot(df.index, df['KC_Lower'], label='KC Lower', 
+    ax1.plot(x_indices, df['KC_Lower'].values, label='KC Lower', 
              color='red', linestyle='--', linewidth=1, alpha=0.7)
-    ax1.fill_between(df.index, df['KC_Upper'], df['KC_Lower'], 
+    ax1.fill_between(x_indices, df['KC_Upper'].values, df['KC_Lower'].values, 
                       color='red', alpha=0.1)
+    
+    # Create custom x-tick labels showing date/time at key points
+    # Show labels at start of each day and some intermediate points
+    tick_positions = []
+    tick_labels = []
+    current_date = None
+    
+    for i, timestamp in enumerate(df.index):
+        date_str = timestamp.strftime('%Y-%m-%d')
+        time_str = timestamp.strftime('%H:%M')
+        
+        # Add tick at start of each new day
+        if date_str != current_date:
+            tick_positions.append(i)
+            tick_labels.append(f"{timestamp.strftime('%m/%d')}\n{time_str}")
+            current_date = date_str
+        # Add tick at noon (12:00) for reference
+        elif time_str == '12:00':
+            tick_positions.append(i)
+            tick_labels.append(time_str)
+    
+    # Add final timestamp
+    if len(df) - 1 not in tick_positions:
+        tick_positions.append(len(df) - 1)
+        tick_labels.append(df.index[-1].strftime('%m/%d\n%H:%M'))
     
     # Formatting main chart
     ax1.set_title(f'FLNG - Bollinger Bands & Keltner Channels (Trading Hours Only)\n'
@@ -226,16 +254,20 @@ def create_chart(df, save_path='FLNG_Technical_Indicators.png'):
     ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
     ax1.legend(loc='upper left', fontsize=10, framealpha=0.9)
     ax1.grid(True, alpha=0.3, linestyle='--')
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d\n%H:%M'))
+    ax1.set_xticks(tick_positions)
+    ax1.set_xticklabels(tick_labels, fontsize=9)
+    ax1.set_xlim(0, len(df) - 1)
     
-    # Volume subplot
+    # Volume subplot - use indices
     colors = ['green' if df['Close'].iloc[i] >= df['Open'].iloc[i] 
               else 'red' for i in range(len(df))]
-    ax2.bar(df.index, df['Volume'], color=colors, alpha=0.5, width=0.001)
+    ax2.bar(x_indices, df['Volume'].values, color=colors, alpha=0.5, width=0.8)
     ax2.set_ylabel('Volume', fontsize=12, fontweight='bold')
     ax2.set_xlabel('Date & Time', fontsize=12, fontweight='bold')
     ax2.grid(True, alpha=0.3, linestyle='--')
-    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d\n%H:%M'))
+    ax2.set_xticks(tick_positions)
+    ax2.set_xticklabels(tick_labels, fontsize=9)
+    ax2.set_xlim(0, len(df) - 1)
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
