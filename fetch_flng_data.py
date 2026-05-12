@@ -62,6 +62,38 @@ def fetch_flng_data(days=5, interval='5m'):
     return df
 
 
+def filter_trading_hours(df):
+    """
+    Filter data to only include regular trading hours (9:30 AM - 4:00 PM EST)
+    
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Stock data with datetime index
+    
+    Returns:
+    --------
+    pd.DataFrame : Filtered data with only trading hours
+    """
+    # Get time component from index
+    times = df.index.time
+    
+    # Define trading hours (9:30 AM to 4:00 PM)
+    from datetime import time
+    market_open = time(9, 30)
+    market_close = time(16, 0)
+    
+    # Filter for trading hours only
+    mask = (times >= market_open) & (times <= market_close)
+    df_filtered = df[mask].copy()
+    
+    print(f"[OK] Filtered to trading hours only (9:30 AM - 4:00 PM EST)")
+    print(f"  Data points before: {len(df)}")
+    print(f"  Data points after: {len(df_filtered)}")
+    
+    return df_filtered
+
+
 def calculate_bollinger_bands(df, period=20, std_dev=2):
     """
     Calculate Bollinger Bands
@@ -188,8 +220,8 @@ def create_chart(df, save_path='FLNG_Technical_Indicators.png'):
                       color='red', alpha=0.1)
     
     # Formatting main chart
-    ax1.set_title(f'FLNG - Bollinger Bands & Keltner Channels\n'
-                  f'{df.index[0].strftime("%Y-%m-%d")} to {df.index[-1].strftime("%Y-%m-%d")}',
+    ax1.set_title(f'FLNG - Bollinger Bands & Keltner Channels (Trading Hours Only)\n'
+                  f'{df.index[0].strftime("%Y-%m-%d")} to {df.index[-1].strftime("%Y-%m-%d")} | 9:30 AM - 4:00 PM EST',
                   fontsize=16, fontweight='bold', pad=20)
     ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
     ax1.legend(loc='upper left', fontsize=10, framealpha=0.9)
@@ -267,14 +299,17 @@ def main():
     # 1. Fetch data
     df = fetch_flng_data(days=DAYS_BACK, interval='5m')
     
-    # 2. Calculate indicators
+    # 2. Filter to trading hours only
+    df = filter_trading_hours(df)
+    
+    # 3. Calculate indicators
     df = calculate_bollinger_bands(df, period=20, std_dev=2)
     df = calculate_keltner_channels(df, ema_period=20, atr_period=10, multiplier=2)
     
-    # 3. Generate signals
+    # 4. Generate signals
     df = generate_trading_signals(df)
     
-    # 4. Save raw data to S3
+    # 5. Save raw data to S3
     print("\n" + "=" * 70)
     print("SAVING DATA TO S3")
     print("=" * 70)
@@ -303,7 +338,7 @@ def main():
             folder='signals/'
         )
     
-    # 5. Create and save chart
+    # 6. Create and save chart
     print("\n" + "=" * 70)
     print("CREATING VISUALIZATION")
     print("=" * 70)
@@ -311,7 +346,7 @@ def main():
     chart_path = 'FLNG_Technical_Indicators.png'
     create_chart(df, save_path=chart_path)
     
-    # 6. Display summary statistics
+    # 7. Display summary statistics
     print("\n" + "=" * 70)
     print("SUMMARY STATISTICS")
     print("=" * 70)
