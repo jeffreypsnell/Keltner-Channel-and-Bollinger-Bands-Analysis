@@ -320,6 +320,145 @@ def generate_trading_signals(df):
     return df
 
 
+def aggregate_to_daily(df):
+    """
+    Aggregate intraday data to daily OHLC format
+    
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Intraday stock data with datetime index
+    
+    Returns:
+    --------
+    pd.DataFrame : Daily OHLC data
+    """
+    # Extract date from datetime index
+    df['Date'] = df.index.date
+    
+    # Aggregate by date
+    daily_df = df.groupby('Date').agg({
+        'Open': 'first',
+        'High': 'max',
+        'Low': 'min',
+        'Close': 'last',
+        'Volume': 'sum'
+    })
+    
+    # Convert Date index to datetime
+    daily_df.index = pd.to_datetime(daily_df.index)
+    
+    print(f"[OK] Aggregated to daily data: {len(daily_df)} trading days")
+    
+    return daily_df
+
+
+def create_daily_boxplot_chart(df_intraday, save_path='FLNG_Daily_BoxPlot.png'):
+    """
+    Create daily box-and-whisker plot with Bollinger Bands and Keltner Channels
+    
+    Parameters:
+    -----------
+    df_intraday : pd.DataFrame
+        Intraday stock data with datetime index
+    save_path : str
+        Path to save the chart
+    """
+    print(f"\nGenerating daily box plot chart...")
+    
+    # Aggregate to daily data
+    df_daily = aggregate_to_daily(df_intraday.copy())
+    
+    # Calculate indicators on daily data
+    df_daily = calculate_bollinger_bands(df_daily, period=5, std_dev=2)
+    df_daily = calculate_keltner_channels(df_daily, ema_period=5, atr_period=5, multiplier=2)
+    
+    # Prepare data for box plots
+    df_intraday_copy = df_intraday.copy()
+    df_intraday_copy['Date'] = df_intraday_copy.index.date
+    
+    # Create figure
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 10), 
+                                     gridspec_kw={'height_ratios': [3, 1]})
+    
+    # Get unique dates
+    unique_dates = sorted(df_intraday_copy['Date'].unique())
+    
+    # Prepare box plot data
+    box_data = []
+    box_positions = []
+    for i, date in enumerate(unique_dates):
+        day_data = df_intraday_copy[df_intraday_copy['Date'] == date]['Close']
+        box_data.append(day_data.values)
+        box_positions.append(i)
+    
+    # Create box plots
+    bp = ax1.boxplot(box_data, positions=box_positions, widths=0.6,
+                     patch_artist=True,
+                     boxprops=dict(facecolor='lightblue', alpha=0.7),
+                     medianprops=dict(color='darkblue', linewidth=2),
+                     whiskerprops=dict(color='gray', linewidth=1.5),
+                     capprops=dict(color='gray', linewidth=1.5),
+                     flierprops=dict(marker='o', markerfacecolor='red', 
+                                   markersize=5, alpha=0.5))
+    
+    # Overlay Bollinger Bands
+    x_positions = range(len(df_daily))
+    ax1.plot(x_positions, df_daily['BB_Upper'].values, 
+             label='BB Upper', color='blue', linestyle='--', linewidth=2)
+    ax1.plot(x_positions, df_daily['BB_Middle'].values, 
+             label='BB Middle (SMA)', color='blue', linestyle=':', linewidth=2)
+    ax1.plot(x_positions, df_daily['BB_Lower'].values, 
+             label='BB Lower', color='blue', linestyle='--', linewidth=2)
+    ax1.fill_between(x_positions, df_daily['BB_Upper'].values, 
+                      df_daily['BB_Lower'].values, color='blue', alpha=0.1)
+    
+    # Overlay Keltner Channels
+    ax1.plot(x_positions, df_daily['KC_Upper'].values, 
+             label='KC Upper', color='red', linestyle='--', linewidth=2)
+    ax1.plot(x_positions, df_daily['KC_Middle'].values, 
+             label='KC Middle (EMA)', color='red', linestyle=':', linewidth=2)
+    ax1.plot(x_positions, df_daily['KC_Lower'].values, 
+             label='KC Lower', color='red', linestyle='--', linewidth=2)
+    ax1.fill_between(x_positions, df_daily['KC_Upper'].values, 
+                      df_daily['KC_Lower'].values, color='red', alpha=0.1)
+    
+    # Plot daily close prices as a line
+    ax1.plot(x_positions, df_daily['Close'].values, 
+             label='Daily Close', color='black', linewidth=2, marker='o', markersize=6)
+    
+    # Formatting
+    ax1.set_title(f'FLNG - Daily Box Plot with Bollinger Bands & Keltner Channels\n'
+                  f'{unique_dates[0]} to {unique_dates[-1]}',
+                  fontsize=16, fontweight='bold', pad=20)
+    ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
+    ax1.legend(loc='upper left', fontsize=10, framealpha=0.9)
+    ax1.grid(True, alpha=0.3, linestyle='--')
+    
+    # Set x-axis labels (dates)
+    date_labels = [pd.to_datetime(d).strftime('%m/%d\n%a') for d in unique_dates]
+    ax1.set_xticks(box_positions)
+    ax1.set_xticklabels(date_labels, fontsize=10)
+    ax1.set_xlim(-0.5, len(unique_dates) - 0.5)
+    
+    # Volume subplot
+    colors = ['green' if df_daily['Close'].iloc[i] >= df_daily['Open'].iloc[i] 
+              else 'red' for i in range(len(df_daily))]
+    ax2.bar(x_positions, df_daily['Volume'].values, color=colors, alpha=0.6, width=0.8)
+    ax2.set_ylabel('Volume', fontsize=12, fontweight='bold')
+    ax2.set_xlabel('Trading Day', fontsize=12, fontweight='bold')
+    ax2.grid(True, alpha=0.3, linestyle='--')
+    ax2.set_xticks(box_positions)
+    ax2.set_xticklabels(date_labels, fontsize=10)
+    ax2.set_xlim(-0.5, len(unique_dates) - 0.5)
+    
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"[OK] Daily box plot chart saved: {save_path}")
+    
+    return fig, df_daily
+
+
 def main():
     """
     Main execution function
@@ -370,13 +509,18 @@ def main():
             folder='signals/'
         )
     
-    # 6. Create and save chart
+    # 6. Create and save charts
     print("\n" + "=" * 70)
-    print("CREATING VISUALIZATION")
+    print("CREATING VISUALIZATIONS")
     print("=" * 70)
     
+    # Intraday chart
     chart_path = 'FLNG_Technical_Indicators.png'
     create_chart(df, save_path=chart_path)
+    
+    # Daily box plot chart
+    daily_chart_path = 'FLNG_Daily_BoxPlot.png'
+    fig_daily, df_daily = create_daily_boxplot_chart(df, save_path=daily_chart_path)
     
     # 7. Display summary statistics
     print("\n" + "=" * 70)
@@ -408,7 +552,8 @@ def main():
     print("COMPLETE!")
     print("=" * 70)
     print(f"\nFiles saved:")
-    print(f"  Chart: {chart_path}")
+    print(f"  Intraday Chart: {chart_path}")
+    print(f"  Daily Box Plot Chart: {daily_chart_path}")
     print(f"  S3 Raw Data: {s3_uri_raw}")
     print(f"  S3 Indicators: {s3_uri_indicators}")
     print(f"\nView in S3: https://us-east-2.console.aws.amazon.com/s3/buckets/flng-trading-data?region=us-east-2&tab=objects")

@@ -2,6 +2,7 @@
 ## Keltner Channels & Bollinger Bands Trading Strategy
 
 ![FLNG Technical Indicators](FLNG_Technical_Indicators.png)
+![FLNG Daily Box Plot](FLNG_Daily_BoxPlot.png)
 
 Automated technical analysis for **Flex LNG Ltd. (FLNG)** using Bollinger Bands and Keltner Channels to identify potential trading opportunities and market volatility patterns.
 
@@ -12,6 +13,10 @@ This project automatically fetches intraday stock data for FLNG and performs tec
 - **Bollinger Bands**: Identifies overbought/oversold conditions based on price volatility
 - **Keltner Channels**: Uses Average True Range (ATR) to measure volatility and trend strength
 - **Squeeze Detection**: Identifies periods of low volatility that often precede significant price moves
+
+The analysis generates **two comprehensive charts**:
+1. **Intraday Chart**: 5-minute intervals showing precise entry/exit points
+2. **Daily Box Plot Chart**: Daily price distribution with Bollinger Bands and Keltner Channels
 
 ### What is FLNG?
 
@@ -32,7 +37,7 @@ This will:
 2. Filter to regular trading hours only (9:30 AM - 4:00 PM EST)
 3. Calculate Bollinger Bands and Keltner Channels
 4. Generate trading signals
-5. Create a visualization chart
+5. Create two visualization charts (intraday and daily box plot)
 6. Save all results to S3
 
 ### Manual Execution
@@ -79,7 +84,8 @@ A **"squeeze"** occurs when Bollinger Bands move inside the Keltner Channels:
 
 ### Local Files
 
-- **`FLNG_Technical_Indicators.png`**: Comprehensive chart showing price action, indicators, volume, and signals
+- **`FLNG_Technical_Indicators.png`**: Intraday chart showing 5-minute price action, indicators, volume, and signals
+- **`FLNG_Daily_BoxPlot.png`**: Daily box-and-whisker plot with Bollinger Bands and Keltner Channels showing daily price distribution
 
 ### S3 Bucket Storage
 
@@ -121,20 +127,46 @@ flng-trading-data/
 - Current price at signal time
 - Squeeze indicator status
 
-## 📊 Understanding the Chart
+## 📊 Understanding the Charts
 
-The generated chart includes:
+### Chart 1: Intraday Technical Indicators
 
-### Upper Panel - Price & Indicators
-- **Black Line**: FLNG closing price
+The intraday chart shows 5-minute interval data with precise timing for entry/exit signals:
+
+#### Upper Panel - Price & Indicators
+- **Black Line**: FLNG closing price (5-minute intervals)
 - **Blue Bands**: Bollinger Bands (dashed lines) with shaded area
 - **Red Bands**: Keltner Channels (dashed lines) with shaded area
 - **Blue Dotted**: 20-period SMA (Bollinger middle band)
 - **Red Dotted**: 20-period EMA (Keltner middle line)
 
-### Lower Panel - Volume
+#### Lower Panel - Volume
+- **Green Bars**: Volume on up intervals (close > open)
+- **Red Bars**: Volume on down intervals (close < open)
+
+### Chart 2: Daily Box Plot with Indicators
+
+The daily box plot provides a higher-level view of price action and volatility:
+
+#### Upper Panel - Daily Price Distribution
+- **Box-and-Whisker Plots**: Show the full price distribution for each trading day
+  - **Box**: Represents the interquartile range (25th to 75th percentile)
+  - **Dark Blue Line in Box**: Median price for the day
+  - **Whiskers**: Extend to the minimum and maximum prices
+  - **Red Dots**: Outlier prices (if any)
+- **Blue Bands**: Bollinger Bands calculated on daily closing prices (5-period)
+- **Red Bands**: Keltner Channels calculated on daily data (5-period)
+- **Black Line with Dots**: Daily closing prices connected
+
+#### Lower Panel - Daily Volume
 - **Green Bars**: Volume on up days (close > open)
 - **Red Bars**: Volume on down days (close < open)
+
+### Why Two Charts?
+
+- **Intraday Chart**: Best for day traders and precise timing of entries/exits
+- **Daily Box Plot**: Best for swing traders and understanding overall daily volatility patterns
+- **Combined View**: Provides both micro (intraday) and macro (daily) perspectives
 
 ## 🎯 Trading Interpretation
 
@@ -216,7 +248,8 @@ set AWS_DEFAULT_REGION=us-east-2
 | `save_to_flng_bucket.py` | S3 upload utilities |
 | `run_analysis.bat` | One-click execution (Windows) |
 | `FLNG_Analysis.ipynb` | Jupyter notebook for interactive analysis |
-| `FLNG_Technical_Indicators.png` | Latest chart output |
+| `FLNG_Technical_Indicators.png` | Latest intraday chart output |
+| `FLNG_Daily_BoxPlot.png` | Latest daily box plot chart output |
 | `README.md` | This documentation |
 
 ## 📈 Sample Output
@@ -238,6 +271,18 @@ Date range: 2026-05-11 09:30:00 to 2026-05-15 15:55:00
   Sell signals: 21
   Squeeze periods: 52
 
+CREATING VISUALIZATIONS
+======================================================================
+
+Generating chart...
+[OK] Chart saved: FLNG_Technical_Indicators.png
+
+Generating daily box plot chart...
+[OK] Aggregated to daily data: 5 trading days
+[OK] Calculated Bollinger Bands (period=5, std=2)
+[OK] Calculated Keltner Channels (EMA=5, ATR=5, mult=2)
+[OK] Daily box plot chart saved: FLNG_Daily_BoxPlot.png
+
 SUMMARY STATISTICS
 ======================================================================
 Price Statistics:
@@ -256,6 +301,16 @@ Current Indicator Levels:
   KC Lower: $31.91
 
 Current Signal: HOLD
+
+======================================================================
+COMPLETE!
+======================================================================
+
+Files saved:
+  Intraday Chart: FLNG_Technical_Indicators.png
+  Daily Box Plot Chart: FLNG_Daily_BoxPlot.png
+  S3 Raw Data: s3://flng-trading-data/raw_data/...
+  S3 Indicators: s3://flng-trading-data/indicators/...
 ```
 
 ## 🔄 Automation Ideas
